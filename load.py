@@ -54,7 +54,7 @@ class HookedModule(nn.Module):
 
     def print_model_structure(self):
         print("Model structure:")
-        for name, module in self.named_modules():
+        for name, module in self.model.named_modules():
             print(f"{name}: {module.__class__.__name__}")
 
     def forward(self, *args, **kwargs):
