@@ -23,20 +23,20 @@ class HookedModule(nn.Module):
     @contextmanager
     def hooks(self, fwd: List[Tuple[str, Callable]] = [], bwd: List[Tuple[str, Callable]] = []):
         self.context_level += 1
-        # Add hooks
-        for hook_position, hook_fn in fwd:
-            module = self._get_module_by_path(hook_position)
-            handle = module.register_forward_hook(hook_fn)
-            info = HookInfo(handle=handle, level=self.context_level)
-            self._hooks.append(info)
-
-        for hook_position, hook_fn in bwd:
-            module = self._get_module_by_path(hook_position)
-            handle = module.register_full_backward_hook(hook_fn)
-            info = HookInfo(handle=handle, level=self.context_level)
-            self._hooks.append(info)
-
         try:
+            # Add hooks
+            for hook_position, hook_fn in fwd:
+                module = self._get_module_by_path(hook_position)
+                handle = module.register_forward_hook(hook_fn)
+                info = HookInfo(handle=handle, level=self.context_level)
+                self._hooks.append(info)
+
+            for hook_position, hook_fn in bwd:
+                module = self._get_module_by_path(hook_position)
+                handle = module.register_full_backward_hook(hook_fn)
+                info = HookInfo(handle=handle, level=self.context_level)
+                self._hooks.append(info)
+
             yield self
         finally:
             # Remove hooks
@@ -61,22 +61,23 @@ class HookedModule(nn.Module):
         return self.model(*args, **kwargs)
 
 
-bert_model = AutoModel.from_pretrained("bert-base-uncased")
-hooked_model = HookedModule(bert_model)
-hooked_model.print_model_structure()
+if __name__ == "__main__":
+    bert_model = AutoModel.from_pretrained("bert-base-uncased")
+    hooked_model = HookedModule(bert_model)
+    hooked_model.print_model_structure()
 
-def example_hook(module, input, output):
-    print(f"Hook called with tensor of shape: {output.shape}")
+    def example_hook(module, input, output):
+        print(f"Hook called with tensor of shape: {output.shape}")
 
-def example_hook2(module, input, output):
-    print(f"Hook2 called with tensor output shape {output[0].shape}")
+    def example_hook2(module, input, output):
+        print(f"Hook2 called with tensor output shape {output[0].shape}")
 
-tok = AutoTokenizer.from_pretrained("bert-base-uncased")
-input_ids = torch.tensor([[101, 2054, 2003, 2026, 2171, 102]])
+    tok = AutoTokenizer.from_pretrained("bert-base-uncased")
+    input_ids = torch.tensor([[101, 2054, 2003, 2026, 2171, 102]])
 
-with hooked_model.hooks(fwd=[('encoder.layer.0.attention.self.query', example_hook)]):
-    output = hooked_model(input_ids)
-    with hooked_model.hooks(fwd=[('encoder.layer.0', example_hook2)]):
+    with hooked_model.hooks(fwd=[('encoder.layer.0.attention.self.query', example_hook)]):
         output = hooked_model(input_ids)
-    output = hooked_model(input_ids)
+        with hooked_model.hooks(fwd=[('encoder.layer.9.output.dense', example_hook2)]):
+            output = hooked_model(input_ids)
+        output = hooked_model(input_ids)
 
